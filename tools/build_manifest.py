@@ -7,8 +7,8 @@ import urllib.parse
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-BASE_URL = "https://raw.githubusercontent.com/mariiooprah/ravenhubsamp/main/"
-LFS_BASE_URL = "https://media.githubusercontent.com/media/mariiooprah/ravenhubsamp/main/"
+RAW_BASE_URL = "https://raw.githubusercontent.com/mariiooprah/ravenhubsamp/"
+LFS_BASE_URL = "https://media.githubusercontent.com/media/mariiooprah/ravenhubsamp/"
 EXCLUDED_FILES = {
     ".gitattributes",
     ".gitignore",
@@ -79,7 +79,7 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def file_entry(relative_path, lfs_paths):
+def file_entry(relative_path, lfs_paths, version):
     path = ROOT / relative_path
     lfs_pointer = lfs_pointer_metadata(path)
     if lfs_pointer:
@@ -88,7 +88,7 @@ def file_entry(relative_path, lfs_paths):
         digest, size = sha256(path), path.stat().st_size
 
     if relative_path in lfs_paths:
-        download_url = LFS_BASE_URL + urllib.parse.quote(relative_path)
+        download_url = LFS_BASE_URL + version + "/" + urllib.parse.quote(relative_path)
     else:
         download_url = None
     entry = {
@@ -110,10 +110,13 @@ def main():
         text=True,
     ).stdout.strip()
     lfs_paths = lfs_tracked_files()
-    files = [file_entry(path, lfs_paths) for path in sorted(tracked_files(), key=str.casefold)]
+    files = [
+        file_entry(path, lfs_paths, version)
+        for path in sorted(tracked_files(), key=str.casefold)
+    ]
     manifest = {
         "version": version,
-        "baseUrl": BASE_URL,
+        "baseUrl": RAW_BASE_URL + version + "/",
         "files": files,
     }
     output = ROOT / "manifest.json"
