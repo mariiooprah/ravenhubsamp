@@ -3,10 +3,12 @@ import hashlib
 import json
 import pathlib
 import subprocess
+import urllib.parse
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-BASE_URL = "https://media.githubusercontent.com/media/mariiooprah/ravenhubsamp/main/"
+BASE_URL = "https://raw.githubusercontent.com/mariiooprah/ravenhubsamp/main/"
+LFS_BASE_URL = "https://media.githubusercontent.com/media/mariiooprah/ravenhubsamp/main/"
 EXCLUDED_FILES = {
     ".gitattributes",
     ".gitignore",
@@ -39,7 +41,18 @@ def tracked_files():
         yield path
 
 
-def lfs_metadata(path):
+def lfs_tracked_files():
+    result = subprocess.run(
+        ["git", "lfs", "ls-files", "--name-only"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return {line.strip() for line in result.stdout.splitlines() if line.strip()}
+
+
+def lfs_pointer_metadata(path):
     if path.stat().st_size > 1024:
         return None
     content = path.read_text(encoding="ascii", errors="ignore")
@@ -66,18 +79,26 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def file_entry(relative_path):
+def file_entry(relative_path, lfs_paths):
     path = ROOT / relative_path
-    lfs = lfs_metadata(path)
-    if lfs:
-        digest, size = lfs
+    lfs_pointer = lfs_pointer_metadata(path)
+    if lfs_pointer:
+        digest, size = lfs_pointer
     else:
         digest, size = sha256(path), path.stat().st_size
-    return {
+
+    if relative_path in lfs_paths:
+        download_url = LFS_BASE_URL + urllib.parse.quote(relative_path)
+    else:
+        download_url = None
+    entry = {
         "path": relative_path,
         "size": size,
         "sha256": digest,
     }
+    if download_url:
+        entry["url"] = download_url
+    return entry
 
 
 def main():
@@ -88,7 +109,8 @@ def main():
         capture_output=True,
         text=True,
     ).stdout.strip()
-    files = [file_entry(path) for path in sorted(tracked_files(), key=str.casefold)]
+    lfs_paths = lfs_tracked_files()
+    files = [file_entry(path, lfs_paths) for path in sorted(tracked_files(), key=str.casefold)]
     manifest = {
         "version": version,
         "baseUrl": BASE_URL,
