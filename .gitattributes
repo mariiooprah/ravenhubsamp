@@ -1,0 +1,4 @@
+textures/game.bin filter=lfs diff=lfs merge=lfs -text
+texdb/gta3.img filter=lfs diff=lfs merge=lfs -text
+texdb/gta3/gta3.dxt.dat filter=lfs diff=lfs merge=lfs -text
+textures/game.img filter=lfs diff=lfs merge=lfs -text
